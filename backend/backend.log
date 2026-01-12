@@ -1,0 +1,6 @@
+
+> elections-backend@1.0.0 start
+> node server.js
+
+Election API server running on port 5001
+MongoDB connected successfully
