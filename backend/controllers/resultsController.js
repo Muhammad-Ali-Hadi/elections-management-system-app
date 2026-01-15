@@ -53,8 +53,9 @@ exports.declareResults = async (req, res) => {
     const allVoters = await Voter.find({ electionId });
     const attendanceRecords = await Attendance.find({ electionId });
 
-    // Calculate voting statistics
-    const totalFlats = allVoters.length;
+    // Calculate voting statistics - Use 105 as the fixed total flats count
+    const TOTAL_FLATS_CONSTANT = 105;
+    const totalFlats = allVoters.length > 0 ? allVoters.length : TOTAL_FLATS_CONSTANT;
     const votersWhoVoted = attendanceRecords.filter(a => a.voted).length;
     const votingPercentage = totalFlats > 0 ? ((votersWhoVoted / totalFlats) * 100).toFixed(2) : 0;
 
@@ -306,6 +307,7 @@ exports.getElectionScheduleStatus = async (req, res) => {
 exports.getFinalizedResults = async (req, res) => {
   try {
     const { electionId } = req.params;
+    const TOTAL_FLATS_CONSTANT = 105;
 
     const results = await Results.findOne({ 
       electionId, 
@@ -314,6 +316,11 @@ exports.getFinalizedResults = async (req, res) => {
 
     if (!results) {
       return res.status(404).json({ message: 'Results have not been declared yet' });
+    }
+
+    // Ensure totalFlats is always set correctly
+    if (!results.votingStatistics.totalFlats || results.votingStatistics.totalFlats === 0) {
+      results.votingStatistics.totalFlats = TOTAL_FLATS_CONSTANT;
     }
 
     // Sort candidates by votes to identify winners and losers
@@ -339,10 +346,17 @@ exports.getFinalizedResults = async (req, res) => {
       }
     });
 
+    // Prepare enhanced statistics with totalFlats fallback
+    const enhancedStatistics = {
+      ...results.votingStatistics,
+      totalFlats: results.votingStatistics.totalFlats || TOTAL_FLATS_CONSTANT,
+      rejectedVotes: results.votingStatistics.rejectedVotes || 0
+    };
+
     res.json({
       success: true,
       results: {
-        statistics: results.votingStatistics,
+        statistics: enhancedStatistics,
         winners: winners.map(w => ({
           candidateName: w.candidateName,
           position: w.position,
